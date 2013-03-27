@@ -1,4 +1,5 @@
-# Sample app
+# Sample cheapcache that uses a more realistic example. For a quickstart,
+# see the docstring on cheapcache.py
 
 from urllib import urlencode
 from urllib2 import urlopen
@@ -24,3 +25,7 @@ def get_json(url):
 def pretty_print(json_string):
     wdata = loads(json_string)
     pprint(wdata)
+
+if __name__ == '__main__':
+    json = get_json(url)
+    pprint(json)

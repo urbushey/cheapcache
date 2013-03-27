@@ -23,11 +23,9 @@ collection  = 'urls'          # collection to use for cache
 import pymongo
 import json
 
-''' Initializations. If mongo is not installed and configured, we'll find out 
-    here. This is here rather than in the class initiator for
-    the cheapcached class itself because this way you find out if your 
-    connection to MongoDB is broken when you start your app server as opposed
-    to when the decorated function is first called. May need more thought.
+''' Initializations. 
+    If mongo is not installed and configured, we'll find out here. May belong 
+    in the class initiator for the cheapcached class itself instead.
     TODO revisit this assumption
 '''
 try:
@@ -43,10 +41,6 @@ class cheapcached(object):
     called, it will be retrieved from MongoDB. If it is not cached in MongoDB,
     it will be placed there.
 
-    Can only be used to decorate a function that takes a single 
-    argument (such as the API call URL) and returns a string 
-    (assumed to be a json_string). 
-    TODO revisit this assumption
     '''
 
     def __init__(self, func):
