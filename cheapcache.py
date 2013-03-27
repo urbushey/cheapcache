@@ -18,16 +18,13 @@ cache.
 
 '''
 db          = 'cheapcache'    # db to use for cache
-collection  = 'urls'          # collection to use for cache
+collection  = 'test'          # collection to use for cache
 
 import pymongo
 import json
 
-''' Initializations. 
-    If mongo is not installed and configured, we'll find out here. May belong 
-    in the class initiator for the cheapcached class itself instead.
-    TODO revisit this assumption
-'''
+# If mongo is not installed and configured, we'll find out here. 
+# TODO investigate moving this into cheapcached constructor
 try:
     conn = pymongo.MongoClient()
     db   = conn[db]
@@ -40,6 +37,23 @@ class cheapcached(object):
     ''' Decorator. If the decorated function's argument has been previously
     called, it will be retrieved from MongoDB. If it is not cached in MongoDB,
     it will be placed there.
+
+    Example:
+
+    >>> @cheapcached
+    ... def request_data(url):
+    ...   print "Getting data from the 'server'"
+    ...   data = {}
+    ...   data['foo'] = 'bar' # ignore url, mock the response
+    ...   return json.dumps(data)
+    >>> request_data('http://www.twitter.com/')
+    Getting data from the 'server'
+    '{"foo": "bar"}'
+    >>> request_data('http://www.google.com/')
+    u'{"foo": "bar"}'
+    >>> request_data('http://www.twitter.com/urbushey')
+    Getting data from the 'server'
+    '{"foo": "bar"}'
 
     '''
 
@@ -73,3 +87,7 @@ class cheapcached(object):
         # no need to JSON-encode the cache_data dictionary, 
         # pymongo takes care of this for us
         collection.insert(cache_data)
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
