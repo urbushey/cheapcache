@@ -17,11 +17,13 @@ NOTE: This decorator DOES NOT take care of removing cached values from the
 cache.
 
 '''
-db          = 'cheapcache'    # db to use for cache
-collection  = 'test'          # collection to use for cache
-
 import pymongo
 import json
+from datetime import datetime, timedelta
+
+db          = 'cheapcache'          # db to use for cache
+collection  = 'test'                # collection to use for cache
+cache_age   =  timedelta(minutes=1) # timedelta object representing age of cache
 
 # If mongo is not installed and configured, we'll find out here. 
 # TODO investigate moving this into cheapcached constructor
@@ -42,11 +44,10 @@ class cheapcached(object):
 
     >>> @cheapcached
     ... def request_data(url):
-    ...    print "Getting data from the 'server'"
-    ...    data = {}
-    ...    data['foo'] = 'bar' # ignore url, mock the response
-    ...    return json.dumps(data)
-
+    ...     print "Getting data from the 'server'"
+    ...     data = {}
+    ...     data['foo'] = 'bar' # ignore url, mock the response
+    ...     return json.dumps(data)
     >>> request_data('http://www.twitter.com/')
     Getting data from the 'server'
     '{"foo": "bar"}'
@@ -75,20 +76,75 @@ class cheapcached(object):
             json_string = cached_json['data']
             return json_string
         
-        # Else, if url key does not exist in mongodb, take a trip to the server
-        # (i.e. call the original function)
-        json_string = self.func(url)
-        
-        # And cache the data returned
-        self.cache_data(json_string, url)
+        # Else url key does not exist in mongodb, take a trip to the server
+        # (i.e. call the original function) andcache the data returned
+        else:
+            json_string = self.func(url)
+            self.cache_data(json_string, url)
         
         # And return the json string.
         return json_string
 
     def cache_data(self, json_string, url):
         cache_data = {}
-        cache_data['url'] = url
+        cache_data['url']  = url
         cache_data['data'] = json_string
+        # no need to JSON-encode the cache_data dictionary, 
+        # pymongo takes care of this for us
+        collection.insert(cache_data)
+
+class cheapcached_with_datetime(cheapcached):  # todo add argument of time-delta
+    ''' Decorator. Like cheapcached, but will store the datetime that 
+    the data entered the cache. The function will check for items newer than
+    cache_age (defined at the top) in the cache, ignoring older results.
+    Note that, like cheapcached, this function will not clean up older data
+    in the cache.
+
+    TODO docstring
+    '''
+    
+    def __call__(self, *args):
+        url      = args[0]
+        check_dt = datetime.now() - cache_age
+        
+        # check to see if the url exists (in MongoDB)
+        cached_json = collection.find_one({'url': url})
+        
+        # If cached data exists, check date
+        if cached_json:
+            cached_dt = cached_json['date']
+            # if the date exists, compare it to the check_dt
+            if cached_dt:
+                # cached data is younger than check_dt, return cached data
+                if cached_dt > check_dt:
+                    json_string = cached_json['data']
+                    return json_string
+                # cached data is older than check_dt, ignore cached data
+                else:
+                    json_string = self.ignore_cache(url) 
+            # the date doesn't exist, ignore cached data
+            else:
+                json_string = self.ignore_cache(url)
+            
+        # Else url key does not exist in mongodb, take a trip to the server
+        # (i.e. call the original function) and record the currrent time
+        else:
+            json_string = self.ignore_cache(url)
+        
+        # And return the json string.
+        return json_string
+
+    def ignore_cache(self, url):
+        now_dt = datetime.now()
+        json_string = self.func(url)
+        self.cache_data(json_string, url, now_dt)
+        return json_string
+
+    def cache_data(self, json_string, url, cache_dt):
+        cache_data = {}
+        cache_data['url']  = url
+        cache_data['data'] = json_string
+        cache_data['date'] = cache_dt
         # no need to JSON-encode the cache_data dictionary, 
         # pymongo takes care of this for us
         collection.insert(cache_data)
