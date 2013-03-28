@@ -42,19 +42,24 @@ class cheapcached(object):
 
     >>> @cheapcached
     ... def request_data(url):
-    ...   print "Getting data from the 'server'"
-    ...   data = {}
-    ...   data['foo'] = 'bar' # ignore url, mock the response
-    ...   return json.dumps(data)
+    ...    print "Getting data from the 'server'"
+    ...    data = {}
+    ...    data['foo'] = 'bar' # ignore url, mock the response
+    ...    return json.dumps(data)
+
     >>> request_data('http://www.twitter.com/')
     Getting data from the 'server'
     '{"foo": "bar"}'
-    >>> request_data('http://www.google.com/')
+    >>> request_data('http://www.twitter.com/')
     u'{"foo": "bar"}'
+    >>> request_data('http://www.google.com/')
+    Getting data from the 'server'
+    '{"foo": "bar"}'
     >>> request_data('http://www.twitter.com/urbushey')
     Getting data from the 'server'
     '{"foo": "bar"}'
-
+    >>> from cheapcache import collection
+    >>> collection.drop()
     '''
 
     def __init__(self, func):
