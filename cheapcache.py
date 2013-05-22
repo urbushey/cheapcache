@@ -4,7 +4,7 @@ license:    http://opensource.org/licenses/MIT
 author:     Uri Bushey
 github:     https://github.com/urbushey/cheapcache
 
-Provides a decorator such that If the decorated function's argument has been 
+Provides a decorator such that if the decorated function's argument has been 
 previously called, it will be retrieved from MongoDB. If the argument is 
 not cached in MongoDB already, both the argument and the results will
 be cached there.
@@ -48,11 +48,12 @@ class cheapcached(object):
     ...     data = {}
     ...     data['foo'] = 'bar' # ignore url, mock the response
     ...     return json.dumps(data)
+    >>> collection = db['doctest'] 
     >>> request_data('http://www.twitter.com/')
     Getting data from the 'server'
     '{"foo": "bar"}'
     >>> request_data('http://www.twitter.com/')
-    u'{"foo": "bar"}'
+    '{"foo": "bar"}'
     >>> request_data('http://www.google.com/')
     Getting data from the 'server'
     '{"foo": "bar"}'
@@ -73,7 +74,7 @@ class cheapcached(object):
         
         # If it exists, return it
         if cached_json:
-            json_string = cached_json['data']
+            json_string = str(cached_json['data']) #added str to get rid of unicode, messing up doctests
             return json_string
         
         # Else url key does not exist in mongodb, take a trip to the server
@@ -100,7 +101,28 @@ class cheapcached_with_datetime(cheapcached):  # todo add argument of time-delta
     Note that, like cheapcached, this function will not clean up older data
     in the cache.
 
-    TODO docstring
+    Example:
+    >>> @cheapcached_with_datetime
+    ... def request_data(url):
+    ...     print "Getting data from the 'server'"
+    ...     data = {}
+    ...     data['foo'] = 'bar' # ignore url, mock the response
+    ...     return json.dumps(data)
+    >>> collection = db['doctest'] 
+    >>> request_data('http://www.twitter.com/')
+    Getting data from the 'server'
+    '{"foo": "bar"}'
+    >>> request_data('http://www.twitter.com/')
+    '{"foo": "bar"}'
+    >>> request_data('http://www.google.com/')
+    Getting data from the 'server'
+    '{"foo": "bar"}'
+    >>> request_data('http://www.twitter.com/urbushey')
+    Getting data from the 'server'
+    '{"foo": "bar"}'
+    >>> from cheapcache import collection
+    >>> collection.drop()
+
     '''
     
     def __call__(self, *args):
@@ -117,17 +139,17 @@ class cheapcached_with_datetime(cheapcached):  # todo add argument of time-delta
             if cached_dt:
                 # cached data is younger than check_dt, return cached data
                 if cached_dt > check_dt:
-                    json_string = cached_json['data']
+                    json_string = str(cached_json['data'])
                     return json_string
                 # cached data is older than check_dt, ignore cached data
                 else:
                     json_string = self.ignore_cache(url) 
-            # the date doesn't exist, ignore cached data
+            # the date doesn't exist, better ignore cached data
             else:
                 json_string = self.ignore_cache(url)
             
         # Else url key does not exist in mongodb, take a trip to the server
-        # (i.e. call the original function) and record the currrent time
+        # (i.e. call the original function) and record the current time
         else:
             json_string = self.ignore_cache(url)
         
@@ -135,20 +157,22 @@ class cheapcached_with_datetime(cheapcached):  # todo add argument of time-delta
         return json_string
 
     def ignore_cache(self, url):
-        now_dt = datetime.now()
         json_string = self.func(url)
-        self.cache_data(json_string, url, now_dt)
+        self.cache_data(json_string, url)
         return json_string
 
-    def cache_data(self, json_string, url, cache_dt):
+    def cache_data(self, json_string, url):
         cache_data = {}
         cache_data['url']  = url
         cache_data['data'] = json_string
-        cache_data['date'] = cache_dt
+        cache_data['date'] = datetime.utcnow()
         # no need to JSON-encode the cache_data dictionary, 
         # pymongo takes care of this for us
         collection.insert(cache_data)
 
 if __name__ == '__main__':
+    import sys
+    reload(sys)
+    sys.setdefaultencoding("UTF-8")
     import doctest
     doctest.testmod()
